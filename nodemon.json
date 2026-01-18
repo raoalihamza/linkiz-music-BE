@@ -1,0 +1,7 @@
+{
+    "ignore": [
+        "*-player-script.js",
+        "cookies.json",
+        "temp/*"
+    ]
+}
