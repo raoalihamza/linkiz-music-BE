@@ -85,11 +85,24 @@ function jsonToNetscape(jsonCookies) {
 
 /**
  * Ensure valid cookies.txt exists from cookies.json
+ * @param {string} platform - Platform name (youtube, instagram, etc.)
  * @returns {string|undefined} Path to cookies.txt or undefined
  */
-function getCookiesPath() {
+function getCookiesPath(platform = "youtube", forceCookies = false) {
   const jsonPath = path.join(__dirname, "../../cookies.json");
   const txtPath = path.join(__dirname, "../../cookies.txt");
+
+  // IMPORTANT: Disable cookies for YouTube as they cause format restrictions
+  // YouTube works better WITHOUT cookies for most videos
+  // Only use cookies for age-restricted content (handled separately)
+  if (platform === "youtube" && !forceCookies) {
+    console.log("ℹ️ Cookies disabled for YouTube (works better without authentication)");
+    return undefined;
+  }
+
+  if (platform === "youtube" && forceCookies) {
+    console.log("🔑 Forcing cookies for YouTube (fallback for restricted content)");
+  }
 
   if (!fs.existsSync(jsonPath)) {
     console.warn("⚠️ cookies.json not found - yt-dlp will run without cookies");
@@ -393,7 +406,8 @@ export async function getDirectDownloadLink(url, format = "video") {
   return retryWithBackoff(
     async () => {
       try {
-        const cookiesPath = getCookiesPath();
+        const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
+        const cookiesPath = getCookiesPath(isYouTube ? "youtube" : "other");
 
         console.log(`⚡ [Direct Link] Extracting ${format} URL for: ${url}`);
 
@@ -540,10 +554,13 @@ export async function downloadMedia(
 
       // Generate video ID for caching
       const videoId = getVideoId(url);
-      const cookiesPath = getCookiesPath();
+
+      // Detect platform and get cookies path (YouTube disabled by design)
+      const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
+      const cookiesPath = getCookiesPath(isYouTube ? "youtube" : "other");
 
       // Cleanup URL specifically for YouTube to avoid playlist issues
-      if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      if (isYouTube) {
         try {
           const urlObj = new URL(url);
           urlObj.searchParams.delete("list");
@@ -660,6 +677,51 @@ export async function downloadMedia(
         };
       } catch (error) {
         console.error("❌ [yt-dlp] Download Error:", error.message);
+
+        // Check if it's an age-restricted or sign-in required error for YouTube
+        const isAgeRestricted =
+          error.message.includes("Sign in to confirm") ||
+          error.message.includes("age-restricted") ||
+          error.message.includes("members-only") ||
+          error.message.includes("private video");
+
+        // FALLBACK STRATEGY: If YouTube video needs authentication, retry with cookies
+        if (isYouTube && isAgeRestricted && !cookiesPath) {
+          console.log("🔁 Video requires authentication, retrying with cookies...");
+
+          // Retry with cookies forced
+          const cookiesPathForced = getCookiesPath("youtube", true);
+          if (cookiesPathForced) {
+            options.cookies = cookiesPathForced;
+
+            try {
+              await ytDlp(cleanUrl, options);
+
+              // Find the downloaded file
+              const files = fs.readdirSync(tempDir);
+              const downloadedFile = files.find((file) =>
+                file.startsWith(`${videoId}_${qualityTarget}_`),
+              );
+
+              if (downloadedFile) {
+                const filePath = path.join(tempDir, downloadedFile);
+                console.log(`✅ [yt-dlp] Download complete with cookies: ${filePath}`);
+
+                return {
+                  filePath,
+                  title: downloadedFile
+                    .replace(`${videoId}_${qualityTarget}_`, "")
+                    .split(".")
+                    .slice(0, -1)
+                    .join("."),
+                };
+              }
+            } catch (retryError) {
+              console.error("❌ Retry with cookies also failed:", retryError.message);
+              throw new Error("Failed to download video even with authentication");
+            }
+          }
+        }
 
         // Enhance error message for bot detection
         if (

@@ -4,3 +4,13 @@ temp/*
 !temp/.gitkeep
 *.log
 .DS_Store
+
+# Cookie automation - sensitive files
+config/accounts.json
+cookies.json
+cookies.txt
+cookies.backup_*.json
+screenshots/*.png
+logs/*.log
+!logs/.gitkeep
+!screenshots/.gitkeep
