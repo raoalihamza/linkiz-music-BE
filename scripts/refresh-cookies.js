@@ -244,6 +244,98 @@ async function attemptLogin(browser, account, attempt = 1) {
 
     await sleep(2000, 4000);
 
+    // ============================================================
+    // HANDLE EU COOKIE CONSENT POPUP (GDPR)
+    // This popup appears in EU regions (France, Germany, UK, etc.)
+    // but NOT in other regions (Pakistan, India, etc.)
+    // ============================================================
+    log(`Checking for cookie consent popup (EU regions)...`, 'INFO');
+    try {
+      // Try multiple selectors for the "Accept all" button
+      const cookieConsentSelectors = [
+        'button[aria-label="Accept all"]',
+        'button[aria-label="Accept the use of cookies and other data for the purposes described"]',
+        'button:has-text("Accept all")',
+        'tp-yt-paper-button[aria-label="Accept all"]',
+        'button.VfPpkd-LgbsSe[aria-label="Accept all"]',
+        '[aria-label="Accept all"]',
+        'button:contains("Accept all")',
+        'form button[aria-label*="Accept"]'
+      ];
+
+      let cookieAccepted = false;
+
+      // Wait a bit for popup to fully render
+      await sleep(1000, 2000);
+
+      for (const selector of cookieConsentSelectors) {
+        try {
+          const button = await page.$(selector);
+          if (button) {
+            const isVisible = await button.isIntersectingViewport();
+            if (isVisible) {
+              await button.click();
+              cookieAccepted = true;
+              log(`Cookie consent accepted using selector: ${selector}`, 'SUCCESS');
+              await sleep(1000, 2000);
+              break;
+            }
+          }
+        } catch (e) {
+          // Selector didn't work, try next
+          continue;
+        }
+      }
+
+      // If selectors didn't work, try XPath for text-based matching
+      if (!cookieAccepted) {
+        try {
+          const acceptButtons = await page.$x("//button[contains(., 'Accept all')]");
+          if (acceptButtons.length > 0) {
+            await acceptButtons[0].click();
+            cookieAccepted = true;
+            log(`Cookie consent accepted using XPath`, 'SUCCESS');
+            await sleep(1000, 2000);
+          }
+        } catch (e) {
+          // XPath didn't work either
+        }
+      }
+
+      // Final fallback: try to find and click by evaluating in page context
+      if (!cookieAccepted) {
+        try {
+          const clicked = await page.evaluate(() => {
+            const buttons = document.querySelectorAll('button');
+            for (const btn of buttons) {
+              if (btn.textContent.includes('Accept all') ||
+                  btn.getAttribute('aria-label')?.includes('Accept all')) {
+                btn.click();
+                return true;
+              }
+            }
+            return false;
+          });
+          if (clicked) {
+            cookieAccepted = true;
+            log(`Cookie consent accepted using page.evaluate()`, 'SUCCESS');
+            await sleep(1000, 2000);
+          }
+        } catch (e) {
+          // evaluate didn't work
+        }
+      }
+
+      if (!cookieAccepted) {
+        log(`No cookie consent popup found (non-EU region or already accepted)`, 'INFO');
+      }
+    } catch (e) {
+      log(`Cookie consent check completed (popup may not exist in this region)`, 'INFO');
+    }
+    // ============================================================
+    // END COOKIE CONSENT HANDLING
+    // ============================================================
+
     // Click sign in button
     log(`Looking for sign-in button...`, 'INFO');
 
