@@ -569,10 +569,26 @@ async function refreshCookies() {
   const maxRetriesPerAccount = rotation?.maxRetries || 3;
 
   // Launch browser
-  log('Launching headless browser...', 'INFO');
+  // IMPORTANT: Using headless: false with Xvfb on server to avoid Google's bot detection
+  // Google blocks 'headless: new' mode, so we use real browser with virtual display
+  // On server, run with: xvfb-run node scripts/refresh-cookies.js
+  log('Launching browser (use xvfb-run on server)...', 'INFO');
+
+  // Determine executable path based on OS
+  const getChromePath = () => {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      return process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    if (process.platform === 'linux') {
+      return '/usr/bin/chromium-browser';
+    }
+    // Windows & macOS - let Puppeteer auto-detect
+    return undefined;
+  };
+
   const browser = await puppeteer.launch({
-    headless: 'new',
-    // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+    headless: false,  // Google detects headless mode, use Xvfb instead
+    executablePath: getChromePath(),
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -583,14 +599,14 @@ async function refreshCookies() {
       '--disable-gpu',
       '--window-size=1920,1080',
       '--disable-blink-features=AutomationControlled',
-      '--disable-web-security',
-      '--disable-features=IsolateOrigins,site-per-process',
-      '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      '--disable-infobars',
+      '--disable-extensions',
+      '--disable-notifications',
+      '--disable-popup-blocking',
+      '--start-maximized'
     ],
-    defaultViewport: {
-      width: 1920,
-      height: 1080
-    }
+    defaultViewport: null,  // Use full window size
+    ignoreDefaultArgs: ['--enable-automation']  // Remove automation flag
   });
 
   let successfulCookies = null;

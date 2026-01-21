@@ -62,9 +62,19 @@ if [ ! -f "config/accounts.json" ]; then
     exit 1
 fi
 
-# Run the Node.js script
-log "Running cookie refresh script..."
-node scripts/refresh-cookies.js
+# Run the Node.js script with Xvfb (virtual display)
+# This is required because Google blocks headless browsers
+# Xvfb creates a virtual X11 display for the browser to run in
+log "Running cookie refresh script with Xvfb..."
+
+# Check if xvfb-run is available
+if command -v xvfb-run &> /dev/null; then
+    xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node scripts/refresh-cookies.js
+else
+    log "WARNING: xvfb-run not found, trying without virtual display..."
+    log "Install with: sudo apt install xvfb"
+    node scripts/refresh-cookies.js
+fi
 
 # Capture exit code
 EXIT_CODE=$?
