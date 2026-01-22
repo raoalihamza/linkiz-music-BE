@@ -587,26 +587,37 @@ async function refreshCookies() {
   };
 
   const browser = await puppeteer.launch({
-    headless: false,  // Google detects headless mode, use Xvfb instead
+    headless: false, // Google detects headless mode, use Xvfb instead
     executablePath: getChromePath(),
     args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--disable-gpu',
-      '--window-size=1920,1080',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-infobars',
-      '--disable-extensions',
-      '--disable-notifications',
-      '--disable-popup-blocking',
-      '--start-maximized'
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--disable-gpu",
+      "--window-size=1920,1080",
+      "--disable-blink-features=AutomationControlled",
+      "--disable-infobars",
+      "--disable-extensions",
+      "--disable-notifications",
+      "--disable-popup-blocking",
+      "--start-maximized",
+      "--disable-web-security",
+      "--disable-features=VizDisplayCompositor",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--disable-gpu",
+      "--hide-scrollbars",
+      "--mute-audio",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
+      "--window-size=1920,1080",
     ],
-    defaultViewport: null,  // Use full window size
-    ignoreDefaultArgs: ['--enable-automation']  // Remove automation flag
+    defaultViewport: null, // Use full window size
+    ignoreDefaultArgs: ["--enable-automation"], // Remove automation flag
   });
 
   let successfulCookies = null;
