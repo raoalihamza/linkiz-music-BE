@@ -587,7 +587,8 @@ async function refreshCookies() {
   };
 
   const browser = await puppeteer.launch({
-    headless: false, // Google detects headless mode, use Xvfb instead
+    headless: 'new',
+    // headless: false, // Google detects headless mode, use Xvfb instead
     executablePath: getChromePath(),
     args: [
       "--no-sandbox",
